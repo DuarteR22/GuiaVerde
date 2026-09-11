@@ -1,0 +1,18 @@
+*.iml
+.gradle/
+.kotlin/
+/build/
+/*/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.hprof
+
+# macOS / Xcode (relevante quando o módulo iOS passar a ser compilado)
+.DS_Store
+*.xcuserstate
+xcuserdata/
