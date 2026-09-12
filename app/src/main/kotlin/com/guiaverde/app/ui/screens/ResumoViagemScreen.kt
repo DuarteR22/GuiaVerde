@@ -79,7 +79,10 @@ fun ResumoViagemScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                SeccaoPortagensDetetadasProvisoria(portagens = portagensDetetadas)
+                SeccaoPortagensDetetadasProvisoria(
+                    portagens = portagensDetetadas,
+                    temCoordenadas = diagnosticoDistancias.isNotEmpty()
+                )
                 SeccaoDiagnosticoDistancias(diagnostico = diagnosticoDistancias)
 
                 CartaoCustoTotal(resumo = resumo)
@@ -164,7 +167,15 @@ fun ResumoViagemScreen(
  * quando a fase de preços/tarifas for implementada.
  */
 @Composable
-private fun SeccaoPortagensDetetadasProvisoria(portagens: List<Portagem>, modifier: Modifier = Modifier) {
+private fun SeccaoPortagensDetetadasProvisoria(
+    portagens: List<Portagem>,
+    // Distingue as duas razões possíveis para a lista vir vazia — sem
+    // isto, "sem coordenadas" e "coordenadas válidas mas nada a 80m"
+    // pareciam o mesmo erro (foi exatamente esta confusão que aconteceu
+    // a testar Lisboa → Porto sem escolher sugestões do autocompletar).
+    temCoordenadas: Boolean,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -185,7 +196,14 @@ private fun SeccaoPortagensDetetadasProvisoria(portagens: List<Portagem>, modifi
                 color = MaterialTheme.colorScheme.outline
             )
         }
-        if (portagens.isEmpty()) {
+        if (portagens.isEmpty() && !temCoordenadas) {
+            Text(
+                text = "Sem coordenadas de Origem/Destino — escolhe uma sugestão da " +
+                    "lista do autocompletar (não basta escrever o texto) antes de calcular.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error
+            )
+        } else if (portagens.isEmpty()) {
             Text(
                 text = "Nenhuma portagem detetada a menos de 80m do trajeto.",
                 style = MaterialTheme.typography.bodyMedium,

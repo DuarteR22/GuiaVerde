@@ -33,11 +33,10 @@ object MockPortagensRepository : PortagensRepository {
     )
 
     private val portagensA1 = listOf(
-        // Alverca e Pombal: coordenadas ainda aproximadas (ver diagnóstico
-        // do Passo 12, fase 1 — chegam a ficar a alguns km do trajeto real
-        // do OSRM). Por atualizar quando tivermos valores mais precisos.
-        Portagem(idPortagem = 1, nome = "Lisboa (Alverca)", latitude = 38.8814, longitude = -9.0392, tipo = TipoPortagem.CABINE, idAutoestrada = 1),
-        Portagem(idPortagem = 2, nome = "Pombal", latitude = 39.9170, longitude = -8.6274, tipo = TipoPortagem.CABINE, idAutoestrada = 1),
+        // Alverca e Pombal: coordenadas confirmadas no Google Maps (o nó da
+        // A1 em cada localidade) — já não são a aproximação inicial.
+        Portagem(idPortagem = 1, nome = "Lisboa (Alverca)", latitude = 38.89207901664875, longitude = -9.048095869682665, tipo = TipoPortagem.CABINE, idAutoestrada = 1),
+        Portagem(idPortagem = 2, nome = "Pombal", latitude = 39.94016667, longitude = -8.67472222, tipo = TipoPortagem.CABINE, idAutoestrada = 1),
         // Coordenada do "Nó do Freixo" (nó da A1/A43 em Campanhã, Porto),
         // confirmada no OpenStreetMap via geocoding — não é aproximação.
         Portagem(idPortagem = 3, nome = "Porto (Freixo)", latitude = 41.1478, longitude = -8.5808, tipo = TipoPortagem.CABINE, idAutoestrada = 1)

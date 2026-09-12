@@ -7,6 +7,10 @@
 .externalNativeBuild/
 .cxx/
 local.properties
+CONTEXTO_PROJETO.md
+.design-export/
+THIRD_PARTY_LICENSES_Chivo_OFL
+THIRD_PARTY_LICENSES_PlusJakartaSans_OFL
 
 # Android Studio / IntelliJ
 .idea/
