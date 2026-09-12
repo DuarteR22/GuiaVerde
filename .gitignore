@@ -9,8 +9,9 @@
 local.properties
 CONTEXTO_PROJETO.md
 .design-export/
-THIRD_PARTY_LICENSES_Chivo_OFL
-THIRD_PARTY_LICENSES_PlusJakartaSans_OFL
+THIRD_PARTY_LICENSES_Chivo_OFL.txt
+THIRD_PARTY_LICENSES_PlusJakartaSans_OFL.txt
+.design-export/stitch_guia_verde_toll_calculator/
 
 # Android Studio / IntelliJ
 .idea/
