@@ -11,6 +11,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -50,10 +55,19 @@ import com.guiaverde.app.ui.theme.GuiaVerdeTheme
  * sem precisar de um ViewModel — em produção, quem chama este ecrã
  * ([com.guiaverde.app.ui.navigation.GuiaVerdeNavHost]) passa sempre o
  * valor vindo do `uiState`.
+ *
+ * [origemDestinoValidos] é a ÚNICA exceção ao "sem remember" acima: a
+ * mensagem de erro que aparece quando se prime "Calcular" sem Origem/
+ * Destino válidos é puramente visual e local a este ecrã (desaparece
+ * sozinha assim que os campos ficam válidos) — não é informação que mais
+ * nenhum ecrã precise de conhecer, por isso não faz sentido subir ao
+ * ViewModel. `onCalcularClick` só é chamado quando a viagem tem
+ * coordenadas — sem isto, o ecrã "A calcular rota" não tinha rota
+ * nenhuma para pedir ao OSRM.
  */
 @Composable
 fun InicioScreen(
-    origem: String = "Lisboa",
+    origem: String = "",
     onOrigemChange: (String) -> Unit = {},
     destino: String = "",
     onDestinoChange: (String) -> Unit = {},
@@ -71,8 +85,20 @@ fun InicioScreen(
     evitarPortagens: Boolean = false,
     onEvitarPortagensChange: (Boolean) -> Unit = {},
     onRotaFrequenteClick: (RotaFrequente) -> Unit = {},
+    // Se a Origem e o Destino têm coordenadas reais (escolhidas do
+    // autocompletar) — sem isto, não há como pedir rota ao OSRM.
+    origemDestinoValidos: Boolean = false,
     onCalcularClick: () -> Unit = {}
 ) {
+    var mensagemErro by remember { mutableStateOf<String?>(null) }
+
+    // Assim que os campos ficam válidos (o utilizador escolheu uma
+    // sugestão), a mensagem desaparece sozinha — não obriga a premir
+    // "Calcular" outra vez só para ela sumir.
+    LaunchedEffect(origemDestinoValidos) {
+        if (origemDestinoValidos) mensagemErro = null
+    }
+
     Scaffold(topBar = { TopoGuiaVerde() }) { espacamentoInterno ->
         Surface(
             modifier = Modifier
@@ -135,10 +161,26 @@ fun InicioScreen(
                     onEvitarPortagensChange = onEvitarPortagensChange
                 )
 
-                BotaoAcaoPrimaria(
-                    texto = "Calcular Portagens",
-                    onClick = onCalcularClick
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    BotaoAcaoPrimaria(
+                        texto = "Calcular Portagens",
+                        onClick = {
+                            if (origemDestinoValidos) {
+                                onCalcularClick()
+                            } else {
+                                mensagemErro = "Preenche a Origem e o Destino escolhendo uma " +
+                                    "sugestão da lista do autocompletar antes de calcular."
+                            }
+                        }
+                    )
+                    mensagemErro?.let { mensagem ->
+                        Text(
+                            text = mensagem,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
 
                 RotasFrequentesSection(
                     rotas = MockRotasFrequentes.rotas,

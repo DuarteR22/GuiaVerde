@@ -66,6 +66,7 @@ fun GuiaVerdeNavHost(
                 evitarPortagens = uiState.evitarPortagens,
                 onEvitarPortagensChange = viewModel::onEvitarPortagensChange,
                 onRotaFrequenteClick = viewModel::onRotaFrequenteSelecionada,
+                origemDestinoValidos = uiState.origemCoordenadas != null && uiState.destinoCoordenadas != null,
                 onCalcularClick = { navController.navigate(Ecra.ACalcularRota.rota) }
             )
         }
@@ -102,8 +103,8 @@ fun GuiaVerdeNavHost(
         composable(Ecra.ResumoViagem.rota) {
             ResumoViagemScreen(
                 resumo = viewModel.gerarResumoViagem(),
-                portagensDetetadas = uiState.portagensDetetadas,
-                diagnosticoDistancias = uiState.diagnosticoDistancias,
+                temCoordenadas = uiState.origemCoordenadas != null && uiState.destinoCoordenadas != null,
+                segmentosPreco = uiState.segmentosPreco,
                 onVoltarClick = {
                     // Só volta — mantém o que estava preenchido no Início,
                     // para o utilizador poder afinar a pesquisa.

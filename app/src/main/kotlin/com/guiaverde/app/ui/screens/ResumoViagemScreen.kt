@@ -1,8 +1,6 @@
 package com.guiaverde.app.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,7 +14,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.RestartAlt
-import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,8 +28,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.guiaverde.app.data.mock.MockPortagensRepository
 import com.guiaverde.app.data.mock.MockResumoViagem
-import com.guiaverde.app.domain.model.Portagem
 import com.guiaverde.app.domain.model.ResumoViagem
+import com.guiaverde.app.domain.model.SegmentoPreco
+import com.guiaverde.app.domain.model.TipoPortagem
+import com.guiaverde.app.domain.model.TrocoAutoestrada
 import com.guiaverde.app.ui.components.comuns.BotaoAcaoPrimaria
 import com.guiaverde.app.ui.components.comuns.BotaoAcaoSecundaria
 import com.guiaverde.app.ui.components.resumo.CartaoCombustivelEstimado
@@ -54,13 +53,12 @@ fun ResumoViagemScreen(
     modifier: Modifier = Modifier,
     onPartilharClick: () -> Unit = {},
     onVerDetalhesClick: () -> Unit = {},
-    // Passo 12 (fase 1, geográfica): resultado REAL — OSRM + deteção de
-    // interseção, não mock. Ver [SeccaoPortagensDetetadasProvisoria].
-    portagensDetetadas: List<Portagem> = emptyList(),
-    // DIAGNÓSTICO temporário — distância real mínima de cada portagem do
-    // mock ao trajeto, para perceber porque é que uma detetada "devia"
-    // aparecer e não aparece (ver CalculoViagemViewModel.calcularTrajeto).
-    diagnosticoDistancias: List<Pair<Portagem, Double>> = emptyList()
+    // Distingue "sem coordenadas escolhidas" de "coordenadas válidas mas
+    // nada perto" — ver KDoc da secção "Discriminação por Autoestrada".
+    temCoordenadas: Boolean = true,
+    // Passo 12 (fase 2, preços): preço real por troço, calculado a partir
+    // das portagens detetadas + [com.guiaverde.app.domain.model.Tarifa].
+    segmentosPreco: List<SegmentoPreco> = emptyList()
 ) {
     Scaffold(
         modifier = modifier,
@@ -79,13 +77,7 @@ fun ResumoViagemScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                SeccaoPortagensDetetadasProvisoria(
-                    portagens = portagensDetetadas,
-                    temCoordenadas = diagnosticoDistancias.isNotEmpty()
-                )
-                SeccaoDiagnosticoDistancias(diagnostico = diagnosticoDistancias)
-
-                CartaoCustoTotal(resumo = resumo)
+                CartaoCustoTotal(resumo = resumo, segmentosPreco = segmentosPreco)
 
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(
@@ -101,17 +93,19 @@ fun ResumoViagemScreen(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "${resumo.trocos.size} troços",
+                            text = "${segmentosPreco.size} troços",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.secondary
                         )
                     }
 
-                    // Lista pequena e fixa (2-3 troços) dentro de um ecrã já
-                    // scrollável — Column + forEach, não LazyColumn (ver nota
-                    // em RotasFrequentesSection.kt, mesmo raciocínio aqui).
-                    resumo.trocos.forEach { troco ->
-                        CartaoTrocoAutoestrada(troco = troco)
+                    // Lista pequena e fixa dentro de um ecrã já scrollável —
+                    // Column + forEach, não LazyColumn (ver nota em
+                    // RotasFrequentesSection.kt, mesmo raciocínio aqui).
+                    if (segmentosPreco.isEmpty()) {
+                        TextoSemTrocos(temCoordenadas = temCoordenadas)
+                    } else {
+                        segmentosPreco.forEach { segmento -> CartaoOuAvisoTroco(segmento = segmento) }
                     }
 
                     CartaoCombustivelEstimado(
@@ -159,99 +153,62 @@ fun ResumoViagemScreen(
 }
 
 /**
- * Secção PROVISÓRIA (Passo 12, fase 1) — mostra o resultado real da
- * deteção de portagens (OSRM + Haversine) em texto simples, só para
- * confirmar visualmente que a deteção geográfica está a funcionar. Sem
- * preços nem estilo definitivo de propósito — isto substitui-se pelos
- * cartões "a sério" (tipo [com.guiaverde.app.ui.components.resumo.CartaoTrocoAutoestrada])
- * quando a fase de preços/tarifas for implementada.
+ * Mostra um [SegmentoPreco] no componente "a sério" já desenhado para
+ * isto ([CartaoTrocoAutoestrada]) — construído a partir dos dados reais
+ * (deteção + preços). Se faltar tarifa (`custo == null`), não dá para
+ * montar um [TrocoAutoestrada] válido (o campo `custo` de lá não é
+ * opcional) — mostra-se antes uma linha de aviso simples, nunca 0€.
  */
 @Composable
-private fun SeccaoPortagensDetetadasProvisoria(
-    portagens: List<Portagem>,
-    // Distingue as duas razões possíveis para a lista vir vazia — sem
-    // isto, "sem coordenadas" e "coordenadas válidas mas nada perto"
-    // pareciam o mesmo erro (foi exatamente esta confusão que aconteceu
-    // a testar Lisboa → Porto sem escolher sugestões do autocompletar).
-    temCoordenadas: Boolean,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Icon(
-                imageVector = Icons.Filled.Science,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.size(16.dp)
+private fun CartaoOuAvisoTroco(segmento: SegmentoPreco, modifier: Modifier = Modifier) {
+    val custoConhecido = segmento.custo
+    if (custoConhecido != null) {
+        CartaoTrocoAutoestrada(
+            modifier = modifier,
+            troco = TrocoAutoestrada(
+                siglas = segmento.siglas,
+                nome = "${segmento.origem} → ${segmento.destino}",
+                // Ainda não existe este campo no domínio para portagens reais
+                // (só o mock tinha) — aproximação razoável por sistema: A1 e
+                // as outras autoestradas "normais" são Brisa; SCUT/pórticos
+                // são geridas pela Infraestruturas de Portugal.
+                concessionaria = if (segmento.tipo == TipoPortagem.CABINE) "Brisa" else "Infraestruturas de Portugal",
+                tipo = segmento.tipo,
+                distanciaKm = segmento.distanciaKm,
+                custo = custoConhecido,
+                numeroPassagens = segmento.numeroPassagens
             )
-            Text(
-                text = "Portagens detetadas no trajeto (provisório)",
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.outline
-            )
-        }
-        if (portagens.isEmpty() && !temCoordenadas) {
-            Text(
-                text = "Sem coordenadas de Origem/Destino — escolhe uma sugestão da " +
-                    "lista do autocompletar (não basta escrever o texto) antes de calcular.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error
-            )
-        } else if (portagens.isEmpty()) {
-            Text(
-                text = "Nenhuma portagem detetada perto do trajeto.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            portagens.forEach { portagem ->
-                Text(
-                    text = "• ${portagem.nome} (${portagem.tipo})",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
+        )
+    } else {
+        Text(
+            modifier = modifier,
+            text = "• ${segmento.origem} → ${segmento.destino}: tarifa não disponível",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
 /**
- * Secção de DIAGNÓSTICO, temporária — para tirar depois de percebermos
- * porque é que a deteção não estava a apanhar as portagens esperadas.
- * Mostra a distância real mínima de CADA portagem do mock ao trajeto,
- * ordenada da mais próxima para a mais distante (ver
- * [com.guiaverde.app.domain.distanciasMinimasPorPortagem]).
+ * Texto mostrado em "Discriminação por Autoestrada" quando não há
+ * nenhum troço a mostrar — distingue as duas razões possíveis: sem
+ * isto, "sem coordenadas" e "coordenadas válidas mas nada perto"
+ * pareciam o mesmo erro (foi exatamente esta confusão que aconteceu a
+ * testar Lisboa → Porto sem escolher sugestões do autocompletar).
  */
 @Composable
-private fun SeccaoDiagnosticoDistancias(diagnostico: List<Pair<Portagem, Double>>, modifier: Modifier = Modifier) {
-    if (diagnostico.isEmpty()) return
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(12.dp))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Text(
-            text = "Diagnóstico: distância real ao trajeto (temporário)",
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.error
-        )
-        diagnostico.forEach { (portagem, distanciaMetros) ->
-            Text(
-                text = "${portagem.nome}: ${distanciaMetros.toInt()} m",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-    }
+private fun TextoSemTrocos(temCoordenadas: Boolean, modifier: Modifier = Modifier) {
+    Text(
+        modifier = modifier,
+        text = if (!temCoordenadas) {
+            "Sem coordenadas de Origem/Destino — escolhe uma sugestão da lista " +
+                "do autocompletar (não basta escrever o texto) antes de calcular."
+        } else {
+            "Nenhuma portagem detetada perto do trajeto."
+        },
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (!temCoordenadas) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+    )
 }
 
 @Preview(showBackground = true)

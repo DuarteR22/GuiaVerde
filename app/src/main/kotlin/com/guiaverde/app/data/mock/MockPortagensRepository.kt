@@ -52,7 +52,15 @@ object MockPortagensRepository : PortagensRepository {
         Portagem(idPortagem = 3, nome = "Feira", latitude = 41.0170191, longitude = -8.5815395, tipo = TipoPortagem.CABINE, idAutoestrada = 1),
         Portagem(idPortagem = 6, nome = "Torres Novas", latitude = 39.478768, longitude = -8.627292, tipo = TipoPortagem.CABINE, idAutoestrada = 1),
         Portagem(idPortagem = 7, nome = "Condeixa", latitude = 40.131146, longitude = -8.492341, tipo = TipoPortagem.CABINE, idAutoestrada = 1),
-        Portagem(idPortagem = 8, nome = "Coimbra", latitude = 40.2026451, longitude = -8.488521, tipo = TipoPortagem.CABINE, idAutoestrada = 1)
+        Portagem(idPortagem = 8, nome = "Coimbra", latitude = 40.2026451, longitude = -8.488521, tipo = TipoPortagem.CABINE, idAutoestrada = 1),
+        // Ponto DIFERENTE do anterior, não um duplicado: "Coimbra" (id 8)
+        // é o acesso sul, confirmado a 40m do trajeto Lisboa→Porto — mas
+        // uma viagem que começa/acaba EM Coimbra e segue para norte entra
+        // na A1 por aqui, não por ali (722m de distância desse trajeto
+        // Lisboa→Porto, por isso nunca tinha sido detetado nele). Nome
+        // oficial no OSM ("Coimbra Norte"), confirmado a 56mm do trajeto
+        // real Coimbra→Porto devolvido pelo OSRM.
+        Portagem(idPortagem = 32, nome = "Coimbra Norte", latitude = 40.2711935, longitude = -8.4732909, tipo = TipoPortagem.CABINE, idAutoestrada = 1)
     )
 
     private val portagensA22 = listOf(
@@ -103,20 +111,47 @@ object MockPortagensRepository : PortagensRepository {
     private val portagens = portagensA1 + portagensA22 + portagensOutras
 
     private val tarifas = listOf(
-        // A1 — Classe 1 (preço cresce com a distância entre cabines)
-        Tarifa(idTarifa = 1, preco = 6.20, idClasse = 1, idEntrada = 1, idSaida = 2),
-        Tarifa(idTarifa = 2, preco = 12.40, idClasse = 1, idEntrada = 1, idSaida = 3),
-        Tarifa(idTarifa = 3, preco = 9.30, idClasse = 1, idEntrada = 2, idSaida = 3),
-        // A1 — Classe 2
-        Tarifa(idTarifa = 4, preco = 9.90, idClasse = 2, idEntrada = 1, idSaida = 2),
-        Tarifa(idTarifa = 5, preco = 18.60, idClasse = 2, idEntrada = 1, idSaida = 3),
+        // A1 — Classe 1, todos os pares "para a frente" (sul→norte) entre
+        // os 6 pontos confirmados contra a rota real (ver Passo 12 fase 1):
+        // Alverca(1) < Torres Novas(6) < Pombal(2) < Condeixa(7) < Coimbra(8) < Feira(3).
+        // Valores aproximados (não são tarifários oficiais), a crescer
+        // com a distância real entre os pontos.
+        Tarifa(idTarifa = 1, preco = 7.20, idClasse = 1, idEntrada = 1, idSaida = 6),
+        Tarifa(idTarifa = 2, preco = 10.80, idClasse = 1, idEntrada = 1, idSaida = 2),
+        Tarifa(idTarifa = 3, preco = 13.90, idClasse = 1, idEntrada = 1, idSaida = 7),
+        Tarifa(idTarifa = 4, preco = 14.60, idClasse = 1, idEntrada = 1, idSaida = 8),
+        Tarifa(idTarifa = 5, preco = 23.90, idClasse = 1, idEntrada = 1, idSaida = 3),
+        Tarifa(idTarifa = 6, preco = 3.60, idClasse = 1, idEntrada = 6, idSaida = 2),
+        Tarifa(idTarifa = 7, preco = 6.70, idClasse = 1, idEntrada = 6, idSaida = 7),
+        Tarifa(idTarifa = 8, preco = 7.40, idClasse = 1, idEntrada = 6, idSaida = 8),
+        Tarifa(idTarifa = 9, preco = 16.70, idClasse = 1, idEntrada = 6, idSaida = 3),
+        Tarifa(idTarifa = 10, preco = 3.10, idClasse = 1, idEntrada = 2, idSaida = 7),
+        Tarifa(idTarifa = 11, preco = 3.80, idClasse = 1, idEntrada = 2, idSaida = 8),
+        Tarifa(idTarifa = 12, preco = 13.10, idClasse = 1, idEntrada = 2, idSaida = 3),
+        Tarifa(idTarifa = 13, preco = 0.70, idClasse = 1, idEntrada = 7, idSaida = 8),
+        Tarifa(idTarifa = 14, preco = 10.00, idClasse = 1, idEntrada = 7, idSaida = 3),
+        Tarifa(idTarifa = 15, preco = 9.30, idClasse = 1, idEntrada = 8, idSaida = 3),
+        // A1 — Classe 2: só os 3 pares originais têm tarifa (falta preencher
+        // o resto da rede para Classe 2+ — fica "N/D" no ecrã até lá,
+        // nunca 0€ nem um valor inventado; ver SegmentoPreco.custo).
+        Tarifa(idTarifa = 16, preco = 16.70, idClasse = 2, idEntrada = 1, idSaida = 2),
+        Tarifa(idTarifa = 17, preco = 37.00, idClasse = 2, idEntrada = 1, idSaida = 3),
+        Tarifa(idTarifa = 18, preco = 20.30, idClasse = 2, idEntrada = 2, idSaida = 3),
         // A22 (SCUT) — idEntrada == idSaida: valor fixo por pórtico, não há "distância"
-        Tarifa(idTarifa = 6, preco = 1.10, idClasse = 1, idEntrada = 4, idSaida = 4),
-        Tarifa(idTarifa = 7, preco = 1.05, idClasse = 1, idEntrada = 5, idSaida = 5),
-        Tarifa(idTarifa = 8, preco = 1.75, idClasse = 2, idEntrada = 4, idSaida = 4),
-        Tarifa(idTarifa = 9, preco = 1.70, idClasse = 2, idEntrada = 5, idSaida = 5)
-        // Sem tarifas para as portagens novas (9-31) — preços a sério são
-        // a fase seguinte do Passo 12; esta fase é só deteção geográfica.
+        Tarifa(idTarifa = 19, preco = 1.10, idClasse = 1, idEntrada = 4, idSaida = 4),
+        Tarifa(idTarifa = 20, preco = 1.05, idClasse = 1, idEntrada = 5, idSaida = 5),
+        Tarifa(idTarifa = 21, preco = 1.75, idClasse = 2, idEntrada = 4, idSaida = 4),
+        Tarifa(idTarifa = 22, preco = 1.70, idClasse = 2, idEntrada = 5, idSaida = 5),
+        // Coimbra Norte(32) → Feira(3), Classe 1 — mesma lógica dos
+        // valores acima (aproximado, a crescer com a distância real entre
+        // os pontos: ~83km, ligeiramente menos que Coimbra→Feira por
+        // Coimbra Norte já estar mais a norte). Só este par, por agora —
+        // ainda não há tarifa Coimbra Norte↔{Alverca,Torres Novas,Pombal,
+        // Condeixa,Coimbra} nem para Classe 2+.
+        Tarifa(idTarifa = 23, preco = 8.60, idClasse = 1, idEntrada = 32, idSaida = 3)
+        // Sem tarifas para as 23 portagens de outras autoestradas (9-31)
+        // — não foram confirmadas contra uma rota real, e não temos
+        // nenhum par entrada/saída plausível para elas ainda.
     )
 
     override fun listarClasses(): List<Classe> = classes

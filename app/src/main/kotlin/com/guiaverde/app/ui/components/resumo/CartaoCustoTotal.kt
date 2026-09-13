@@ -28,16 +28,46 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.guiaverde.app.domain.custoTotal
 import com.guiaverde.app.domain.model.ResumoViagem
+import com.guiaverde.app.domain.model.SegmentoPreco
 import com.guiaverde.app.ui.format.paraDuracao
 import com.guiaverde.app.ui.format.paraEuros
 
 /**
  * O cartão em destaque no topo do Resumo: preço total, classe, rota e as
  * 3 métricas rápidas (distância / duração / praças+pórticos).
+ *
+ * O preço em destaque já é REAL quando há [segmentosPreco] (Passo 12,
+ * fase 2 — calculado a partir das portagens efetivamente detetadas):
+ * - lista vazia (nenhum cálculo real ainda feito, ex: `@Preview`) → mostra
+ *   [ResumoViagem.custoTotal] (mock), para o resto do cartão continuar a
+ *   fazer sentido visualmente sem precisar de um cálculo real.
+ * - lista não-vazia mas sem conseguir somar tudo (falta tarifa nalgum
+ *   troço) → "N/D", nunca um valor inventado.
+ * - lista completa → o total real.
+ * A rota mostrada (ex: "Lisboa (Alverca) ➔ Coimbra") também já vem de
+ * [segmentosPreco] quando existe — a primeira origem e o último destino
+ * dos troços reais, não o par fixo do [resumo] mock. Distância, duração,
+ * praças/pórticos e classe continuam a vir do [resumo] mock.
  */
 @Composable
-fun CartaoCustoTotal(resumo: ResumoViagem, modifier: Modifier = Modifier) {
+fun CartaoCustoTotal(
+    resumo: ResumoViagem,
+    modifier: Modifier = Modifier,
+    segmentosPreco: List<SegmentoPreco> = emptyList()
+) {
+    val textoPreco = if (segmentosPreco.isEmpty()) {
+        resumo.custoTotal.paraEuros()
+    } else {
+        segmentosPreco.custoTotal()?.paraEuros() ?: "N/D"
+    }
+    val textoRota = if (segmentosPreco.isEmpty()) {
+        "${resumo.origemDetalhe} ➔ ${resumo.destinoDetalhe}"
+    } else {
+        "${segmentosPreco.first().origem} ➔ ${segmentosPreco.last().destino}"
+    }
+
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -94,7 +124,7 @@ fun CartaoCustoTotal(resumo: ResumoViagem, modifier: Modifier = Modifier) {
 
                 Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = resumo.custoTotal.paraEuros(),
+                        text = textoPreco,
                         style = MaterialTheme.typography.displayLarge,
                         color = MaterialTheme.colorScheme.primaryContainer
                     )
@@ -120,7 +150,7 @@ fun CartaoCustoTotal(resumo: ResumoViagem, modifier: Modifier = Modifier) {
                         modifier = Modifier.size(18.dp)
                     )
                     Text(
-                        text = "${resumo.origemDetalhe} ➔ ${resumo.destinoDetalhe}",
+                        text = textoRota,
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                         color = MaterialTheme.colorScheme.onSurface
                     )

@@ -59,17 +59,3 @@ fun detetarPortagensAtravessadas(pontosRota: List<Coordenadas>, portagens: List<
 
     return atravessadas
 }
-
-/**
- * Auxiliar de DIAGNÓSTICO (temporário, Passo 12 fase 1) — não é usado pela
- * deteção em si, só para perceber, durante os testes, a que distância
- * real cada [portagem] ficou do trajeto. Se uma portagem "devia" ser
- * detetada e não é, isto diz se está a 550m (afinar [DISTANCIA_MAXIMA_METROS]
- * pode chegar) ou a 5km (as coordenadas do mock estão erradas — problema
- * diferente). Devolve pela ordem, mais perto primeiro.
- */
-fun distanciasMinimasPorPortagem(pontosRota: List<Coordenadas>, portagens: List<Portagem>): List<Pair<Portagem, Double>> {
-    return portagens
-        .map { portagem -> portagem to (pontosRota.minOfOrNull { portagem.coordenadas.distanciaEmMetrosAte(it) } ?: Double.NaN) }
-        .sortedBy { (_, distancia) -> distancia }
-}

@@ -7,12 +7,13 @@ import com.guiaverde.app.data.mock.MockResumoViagem
 import com.guiaverde.app.data.mock.RotaFrequente
 import com.guiaverde.app.data.remote.OsrmRotaRepository
 import com.guiaverde.app.data.remote.PhotonGeocodingRepository
+import com.guiaverde.app.domain.calcularCustoPortagens
 import com.guiaverde.app.domain.detetarPortagensAtravessadas
-import com.guiaverde.app.domain.distanciasMinimasPorPortagem
 import com.guiaverde.app.domain.model.Classe
 import com.guiaverde.app.domain.model.Coordenadas
 import com.guiaverde.app.domain.model.Portagem
 import com.guiaverde.app.domain.model.ResumoViagem
+import com.guiaverde.app.domain.model.SegmentoPreco
 import com.guiaverde.app.domain.model.SugestaoLocal
 import com.guiaverde.app.domain.repository.GeocodingRepository
 import com.guiaverde.app.domain.repository.PortagensRepository
@@ -33,8 +34,12 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 
-/** Valores usados quando não há (ainda) nenhuma viagem escolhida. */
-private const val ORIGEM_OMISSAO = "Lisboa"
+/**
+ * Valor usado quando não há (ainda) nenhuma viagem escolhida — vazio de
+ * propósito, para o campo Origem mostrar só o placeholder ("Ex: Lisboa ou
+ * Porto") ao abrir a app, em vez de vir pré-preenchido.
+ */
+private const val ORIGEM_OMISSAO = ""
 private const val ID_CLASSE_OMISSAO = 1L
 
 /** Regras do autocompletar de Origem/Destino (Passo 12). */
@@ -64,8 +69,9 @@ data class CalculoViagemUiState(
     // Preenchida por `calcularTrajeto()` — resultado real (OSRM +
     // deteção de interseção), não mock. Ver KDoc de `calcularTrajeto`.
     val portagensDetetadas: List<Portagem> = emptyList(),
-    // DIAGNÓSTICO temporário (Passo 12 fase 1) — ver KDoc de `calcularTrajeto`.
-    val diagnosticoDistancias: List<Pair<Portagem, Double>> = emptyList(),
+    // Preço por troço (Passo 12, fase 2) — calculado a partir de
+    // portagensDetetadas + classeSelecionadaId; ver calcularTrajeto().
+    val segmentosPreco: List<SegmentoPreco> = emptyList(),
     val classes: List<Classe> = emptyList(),
     val classeSelecionadaId: Long = ID_CLASSE_OMISSAO,
     val viaVerdeAtivo: Boolean = true,
@@ -200,18 +206,18 @@ class CalculoViagemViewModel @JvmOverloads constructor(
                 sugestoesOrigem = emptyList(),
                 sugestoesDestino = emptyList(),
                 portagensDetetadas = emptyList(),
-                diagnosticoDistancias = emptyList(),
+                segmentosPreco = emptyList(),
                 classeSelecionadaId = ID_CLASSE_OMISSAO
             )
         }
     }
 
     /**
-     * Obtém o trajeto real (OSRM) entre a Origem e o Destino escolhidos e
+     * Obtém o trajeto real (OSRM) entre a Origem e o Destino escolhidos,
      * deteta que portagens atravessa (Haversine, ver
-     * [com.guiaverde.app.domain.detetarPortagensAtravessadas]). Fase só
-     * GEOGRÁFICA (Passo 12, primeira fase) — sem preços, sem diferenciar
-     * por classe de veículo.
+     * [com.guiaverde.app.domain.detetarPortagensAtravessadas]) e calcula o
+     * preço de cada troço para a [CalculoViagemUiState.classeSelecionadaId]
+     * atual (ver [com.guiaverde.app.domain.calcularCustoPortagens]).
      *
      * `suspend`, não lançada com `viewModelScope`: quem chama isto — o
      * ecrã "A calcular rota", através de um `LaunchedEffect` no
@@ -231,23 +237,30 @@ class CalculoViagemViewModel @JvmOverloads constructor(
             // OSRM. Obrigar a escolher uma sugestão antes de calcular é
             // validação de formulário, fora do âmbito desta fase — por
             // agora só evita chamar a API sem argumentos válidos.
-            _uiState.update { it.copy(portagensDetetadas = emptyList(), diagnosticoDistancias = emptyList()) }
+            _uiState.update { it.copy(portagensDetetadas = emptyList(), segmentosPreco = emptyList()) }
             return
         }
 
         val pontosRota = rotaRepository.obterRota(origemCoord, destinoCoord)
-        val portagens = portagensRepository.listarPortagens()
+        val portagensConhecidas = portagensRepository.listarPortagens()
 
         // Dispatchers.Default: é trabalho de CPU (Haversine ponto a
         // ponto), não de rede — não faz sentido correr na mesma
         // dispatcher usada para chamadas de rede nem, já agora, na thread
         // principal (ver a conversa sobre desempenho: isto é rápido de
         // sobra, mas continua a ser boa prática separar por tipo de trabalho).
-        val (portagensAtravessadas, diagnostico) = withContext(Dispatchers.Default) {
-            detetarPortagensAtravessadas(pontosRota, portagens) to distanciasMinimasPorPortagem(pontosRota, portagens)
+        val (portagensAtravessadas, segmentosPreco) = withContext(Dispatchers.Default) {
+            val atravessadas = detetarPortagensAtravessadas(pontosRota, portagensConhecidas)
+            val precos = calcularCustoPortagens(
+                atravessadas,
+                estadoAtual.classeSelecionadaId,
+                portagensRepository.listarTarifas(),
+                portagensRepository.listarAutoestradas()
+            )
+            atravessadas to precos
         }
 
-        _uiState.update { it.copy(portagensDetetadas = portagensAtravessadas, diagnosticoDistancias = diagnostico) }
+        _uiState.update { it.copy(portagensDetetadas = portagensAtravessadas, segmentosPreco = segmentosPreco) }
     }
 
     /**
