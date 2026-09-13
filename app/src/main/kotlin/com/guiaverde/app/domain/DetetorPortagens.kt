@@ -3,14 +3,23 @@ package com.guiaverde.app.domain
 import com.guiaverde.app.domain.model.Coordenadas
 import com.guiaverde.app.domain.model.Portagem
 
-/** Distância máxima (metros) a uma portagem para a considerarmos atravessada pela rota. */
-private const val DISTANCIA_MAXIMA_METROS = 80.0
+/**
+ * Distância máxima (metros) a uma portagem para a considerarmos
+ * atravessada pela rota. Era 80m no enunciado original, mas testar contra
+ * a rota real Lisboa→Porto (OSRM) e contra dados reais do OpenStreetMap
+ * mostrou que, MESMO com coordenadas exatas, a maioria das portagens
+ * reais fica a 270-800m da linha que o OSRM traça (a via divide-se em
+ * várias faixas nas praças de portagem, e o OSRM nem sempre segue a
+ * faixa onde o pórtico/cabine está) — 80m não é um problema de dados,
+ * é demasiado apertado para a geometria real das rotas do OSRM.
+ */
+private const val DISTANCIA_MAXIMA_METROS = 500.0
 
 /**
  * Cruza os pontos de uma rota real com as [portagens] conhecidas e
  * devolve as que a rota atravessa, pela ORDEM em que acontecem ao longo
  * do trajeto, sem repetir a mesma portagem em pontos consecutivos — a
- * rota passa "a menos de 80m" da mesma cabine em várias dezenas de
+ * rota passa a menos de [DISTANCIA_MAXIMA_METROS] da mesma cabine em várias dezenas de
  * pontos seguidos; sem esta verificação, apareceria repetida dezenas de
  * vezes seguidas na lista.
  *
@@ -55,7 +64,7 @@ fun detetarPortagensAtravessadas(pontosRota: List<Coordenadas>, portagens: List<
  * Auxiliar de DIAGNÓSTICO (temporário, Passo 12 fase 1) — não é usado pela
  * deteção em si, só para perceber, durante os testes, a que distância
  * real cada [portagem] ficou do trajeto. Se uma portagem "devia" ser
- * detetada e não é, isto diz se está a 90m (afinar [DISTANCIA_MAXIMA_METROS]
+ * detetada e não é, isto diz se está a 550m (afinar [DISTANCIA_MAXIMA_METROS]
  * pode chegar) ou a 5km (as coordenadas do mock estão erradas — problema
  * diferente). Devolve pela ordem, mais perto primeiro.
  */

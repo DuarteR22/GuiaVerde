@@ -170,7 +170,7 @@ fun ResumoViagemScreen(
 private fun SeccaoPortagensDetetadasProvisoria(
     portagens: List<Portagem>,
     // Distingue as duas razões possíveis para a lista vir vazia — sem
-    // isto, "sem coordenadas" e "coordenadas válidas mas nada a 80m"
+    // isto, "sem coordenadas" e "coordenadas válidas mas nada perto"
     // pareciam o mesmo erro (foi exatamente esta confusão que aconteceu
     // a testar Lisboa → Porto sem escolher sugestões do autocompletar).
     temCoordenadas: Boolean,
@@ -205,7 +205,7 @@ private fun SeccaoPortagensDetetadasProvisoria(
             )
         } else if (portagens.isEmpty()) {
             Text(
-                text = "Nenhuma portagem detetada a menos de 80m do trajeto.",
+                text = "Nenhuma portagem detetada perto do trajeto.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

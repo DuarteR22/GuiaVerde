@@ -153,12 +153,28 @@ frontend/
         como `List<Coordenadas>`. `Coordenadas.distanciaEmMetrosAte`
         (Haversine) + `detetarPortagensAtravessadas` (`domain/`, função
         pura) cruzam os pontos da rota com o `PortagensRepository` e
-        devolvem as portagens a menos de 80m, pela ordem do trajeto, sem
+        devolvem as portagens atravessadas, pela ordem do trajeto, sem
         repetir a mesma seguida. `CalculoViagemViewModel.calcularTrajeto()`
         orquestra tudo (a parte de CPU corre em `Dispatchers.Default`);
         `ACalcularRotaScreen` deixou de simular um `delay()` fixo — quem
         decide quando o cálculo termina é este trabalho real, disparado
         num `LaunchedEffect` no `GuiaVerdeNavHost`. Resultado mostrado
-        (provisório, só texto) numa secção nova no ecrã de Resumo.
+        (provisório, só texto) numa secção nova no ecrã de Resumo, com uma
+        secção de diagnóstico adicional (distância real de cada portagem
+        ao trajeto) — também temporária.
+        **Margem de deteção: 500m, não os 80m do enunciado inicial** —
+        testar a rota real Lisboa→Porto (OSRM) contra dados reais do
+        OpenStreetMap mostrou que, mesmo com coordenadas exatas, a maioria
+        das portagens reais fica a 270-800m da linha do OSRM (a via
+        divide-se em várias faixas nas praças de portagem); 80m não
+        detetava quase nada, mesmo com dados perfeitos.
+        **`MockPortagensRepository` passou a ter coordenadas REAIS**: o
+        A1 (6 pontos) foi confirmado contra a rota Lisboa→Porto a sério;
+        as restantes 23 portagens (A3, A8, A10, A11, A13, A17, A21) vêm
+        de um export Overpass (OSM) de nós `barrier=toll_booth`/
+        `highway=toll_gantry` em Portugal, com nome e autoestrada reais,
+        mas SEM confirmação individual contra uma rota (só o A1 foi
+        testado ponta-a-ponta). A22 (Faro/Tavira) continua por confirmar —
+        o export não tinha nenhuma entrada nomeada nessa zona.
       - [ ] Preços/tarifas a partir das portagens detetadas, por classe de
         veículo — próxima fase.
